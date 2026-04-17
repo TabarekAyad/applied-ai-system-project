@@ -9,3 +9,13 @@ id,title,artist,genre,mood,energy,tempo_bpm,valence,danceability,acousticness
 8,Night Drive Loop,Neon Echo,synthwave,moody,0.75,110,0.49,0.73,0.22
 9,Focus Flow,LoRoom,lofi,focused,0.40,80,0.59,0.60,0.78
 10,Rooftop Lights,Indigo Parade,indie pop,happy,0.76,124,0.81,0.82,0.35
+11,Gold Chain Daydream,Westbound Sol,hip-hop,nostalgic,0.68,92,0.72,0.84,0.14
+12,Velvet Underground Wish,Sable June,r&b,romantic,0.55,96,0.78,0.66,0.42
+13,Moonlit Sonata,Clara Voss,classical,dreamy,0.18,52,0.74,0.22,0.97
+14,Cabin Smoke,The Driftwood,folk,sad,0.31,68,0.38,0.44,0.91
+15,Iron Cathedral,Gravemass,metal,angry,0.96,178,0.22,0.58,0.04
+16,Pulse Grid,Synthex,edm,intense,0.94,140,0.61,0.92,0.03
+17,Neon Petals,Halo Drift,dream pop,dreamy,0.52,102,0.76,0.57,0.48
+18,Broken Compass,Rue Hollow,indie folk,sad,0.34,74,0.31,0.40,0.88
+19,Late Night Pickup,Fader Kings,r&b,relaxed,0.48,84,0.69,0.70,0.33
+20,Static Bloom,Pale Circuit,electronic,moody,0.72,122,0.43,0.78,0.11
