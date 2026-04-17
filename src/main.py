@@ -13,7 +13,10 @@ from recommender import load_songs, recommend_songs
 
 
 def main() -> None:
-    songs = load_songs("data/songs.csv") 
+    songs = load_songs("../data/songs.csv")
+    print(f"Loaded {len(songs)} songs:")
+    for song in songs:
+        print(f"  {song['id']:>2}. {song['title']} — {song['artist']} ({song['genre']}, {song['mood']}, energy={song['energy']})")
 
     # User taste profiles — swap the active one to test different recommendations
 
