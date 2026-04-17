@@ -11,23 +11,54 @@ Your goal is to:
 - Evaluate what your system gets right and wrong
 - Reflect on how this mirrors real world AI recommenders
 
-Replace this paragraph with your own summary of what your version does.
+This project builds a simplified content-based music recommender that scores songs against a user taste profile and returns the best matches. Each song is described by numerical features (energy, valence, danceability, acousticness, tempo) and categorical labels (genre, mood). A user profile stores their preferences, and the recommender computes a weighted score for every song in the catalog — rewarding songs that are close to the user's target energy, match their mood, align with their genre, and fit their acoustic preference. The top-scoring songs are returned as recommendations with a plain-language explanation for each.
 
 ---
 
 ## How The System Works
 
-Explain your design in plain language.
+Real-world recommendation systems like Spotify or YouTube don't just match songs to a static profile — they continuously learn from behavior (skips, replays, saves) and layer multiple signals together: what you've listened to, what similar users love, the audio properties of the song itself, and even the time of day you're listening. They operate at massive scale using techniques like matrix factorization, deep neural networks on raw audio, and reinforcement learning to optimize for long-term satisfaction rather than just the next click. This version prioritizes a simpler but principled approach: **content-based filtering using four song features — energy, mood, genre, and acousticness — weighted by how much each one reflects real listening intent.** Rather than guessing from other users' behavior, it scores each song directly against a user's stated preferences and ranks the results. The goal is a system that produces explainable, sensible recommendations — one where you can trace exactly why a song was suggested and verify that the logic matches how musical "vibe" actually works.
 
-Some prompts to answer:
+Explain your design in plain language.
 
 - What features does each `Song` use in your system
   - For example: genre, mood, energy, tempo
+
+  Each song carries five numerical features and two categorical labels:
+  - `energy` (0.0–1.0) — intensity and loudness; the primary scoring signal
+  - `valence` (0.0–1.0) — musical positivity; used as a tie-breaker in ranking
+  - `danceability` (0.0–1.0) — rhythmic regularity; available but passive in v1
+  - `acousticness` (0.0–1.0) — absence of electronic production; scored against user preference
+  - `tempo_bpm` (BPM) — speed of the beat; correlated with energy, passive in v1
+  - `genre` (string) — categorical label matched against the user's favorite genre
+  - `mood` (string) — categorical label matched against the user's favorite mood, with partial credit for adjacent moods
+
 - What information does your `UserProfile` store
+
+  ```
+  favorite_genre   → string   e.g. "pop"
+  favorite_mood    → string   e.g. "happy"
+  target_energy    → float    e.g. 0.8
+  likes_acoustic   → bool     e.g. False
+  ```
+
 - How does your `Recommender` compute a score for each song
+
+  Each song receives a score between 0.0 and 1.0 from four weighted components:
+  ```
+  score = energy_score   × 0.40   ← squared distance from target_energy
+        + mood_score     × 0.30   ← exact=1.0, adjacent mood=0.5, miss=0.0
+        + genre_score    × 0.20   ← exact=1.0, miss=0.0
+        + acoustic_score × 0.10   ← aligned with likes_acoustic boolean
+  ```
+  Energy carries the most weight because a large energy mismatch ruins a listening session regardless of other matches. Mood outweighs genre because it captures *why* you're listening right now (context), while genre captures longer-term taste (texture).
+
 - How do you choose which songs to recommend
 
-You can include a simple diagram or bullet list if helpful.
+  1. Score every song in the catalog using the formula above
+  2. Sort all songs by score, highest first
+  3. Break ties using `valence` (happier-sounding songs win)
+  4. Return the top `k` results (default `k=5`) with a plain-language explanation for each
 
 ---
 
