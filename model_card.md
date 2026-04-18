@@ -10,7 +10,7 @@ A content-based music recommender that scores every song in a catalog against a 
 
 ## 2. Goal / Task
 
-VibeFinder tries to answer one question: *given what a person tells me they like right now, which songs from the catalog would feel most right to them?*
+MoodTune tries to answer one question: *given what a person tells me they like right now, which songs from the catalog would feel most right to them?*
 
 It does not predict behavior or learn from listening history. It takes four inputs — favorite genre, current mood, energy target, and whether you like acoustic music — and uses those to score every song. The top five scores become the recommendations.
 
@@ -127,7 +127,7 @@ The most unexpected result came from the "No Catalog Match" profile (classical +
 ## 8. Intended Use and Non-Intended Use
 
 **Intended use:**
-VibeFinder 1.0 is designed for classroom exploration. It is a teaching tool for understanding how content-based filtering works — how you turn song features and user preferences into a ranked list, and what happens when the data or the preferences create edge cases. It is appropriate for a single user choosing from a small, static catalog in a controlled setting.
+MoodTune 1.0 is designed for classroom exploration. It is a teaching tool for understanding how content-based filtering works — how you turn song features and user preferences into a ranked list, and what happens when the data or the preferences create edge cases. It is appropriate for a single user choosing from a small, static catalog in a controlled setting.
 
 **Not intended for:**
 - Real music services or production environments

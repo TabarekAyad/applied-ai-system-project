@@ -254,7 +254,7 @@ Combines reflection and model card framing from the Module 3 guidance. :contentR
 
 Give your recommender a name, for example:
 
-> VibeFinder 1.0
+> MoodTune 1.0
 
 ---
 
