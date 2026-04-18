@@ -92,16 +92,37 @@ Prompts:
 
 ## 7. Evaluation  
 
-How you checked whether the recommender behaved as expected. 
+Ten user profiles were run in total — five standard profiles covering common listening contexts, and five adversarial profiles designed to break the system in specific ways.
 
-Prompts:  
+**Standard profiles tested:**
+- *High-Energy Pop* — a person who wants upbeat pop music for a happy occasion (energy 0.85, genre pop, mood happy)
+- *Chill Lofi* — a late-night study session with quiet, focused, acoustic-leaning music (energy 0.40, genre lofi, mood focused)
+- *Deep Intense Rock* — aggressive, loud rock for a workout or driving (energy 0.90, genre rock, mood intense)
+- *Melancholic Evening* — slow, sad, acoustic folk for a quiet night in (energy 0.30, genre folk, mood sad)
+- *Friday Night EDM* — high-energy electronic music for dancing (energy 0.92, genre edm, mood intense)
 
-- Which user profiles you tested  
-- What you looked for in the recommendations  
-- What surprised you  
-- Any simple tests or comparisons you ran  
+**Adversarial profiles tested:**
+- *Conflicting Energy vs Mood* — asked for sad rock at high energy, two signals pointing in opposite directions
+- *Single-Song Genre* — asked for metal, a genre with only one song in the catalog
+- *Dead-Center Energy* — asked for jazz at exactly 0.5 energy, where most songs score similarly on energy
+- *Acoustic + High Energy Contradiction* — asked for folk with acoustic preference but high energy target, which almost no song can satisfy
+- *No Catalog Match* — asked for classical and angry, a combination that does not exist in the catalog at all
 
-No need for numeric metrics unless you created some.
+**What the results showed:**
+
+Every standard profile returned a sensible #1 result — the song that matched genre, mood, and energy all at once always won by a large margin. *Focus Flow* for lofi, *Storm Runner* for rock, *Cabin Smoke* for folk. The system worked as designed in clean, non-conflicting cases.
+
+**What surprised me — and why Gym Hero keeps showing up:**
+
+*Gym Hero* appeared in the top 5 for three different profiles: High-Energy Pop, Deep Intense Rock, and Friday Night EDM. At first glance it seems odd that a gym-energy pop song would show up for a rock fan or an EDM fan. But the reason makes sense once you understand how the scoring works.
+
+Imagine you are looking for happy pop music. The system goes through every song and gives it points in four categories. *Gym Hero* is a pop song, so it gets full marks for genre — that is worth 2 out of 6 possible points right away, the single biggest chunk. Its energy level (0.93) is extremely close to your target (0.85), so it scores nearly perfectly on energy too — another 2 points. Together those two things give it almost 4 points before mood or acoustics are even considered. The fact that *Gym Hero* is tagged "intense" rather than "happy" costs it 1.5 points, but it still ends up at 4.46 out of 6 — easily enough for #2. The system is not wrong in a technical sense: *Gym Hero* really is a pop song that matches your energy target very well. But it cannot tell the difference between a birthday party playlist and a pre-workout playlist. Both are "high-energy pop" by the numbers.
+
+For a rock fan, *Gym Hero* appears for a different reason: the rock profile wants "intense" music, and *Gym Hero* is tagged intense. It gets the full 1.5 mood points plus nearly perfect energy points, and since there is only one rock song in the catalog, the other slots go to the next-best energy + mood combinations — which *Gym Hero* satisfies better than most. It is the system falling back to what it can measure when it runs out of exact genre matches.
+
+**Surprising finding from adversarial tests:**
+
+The most unexpected result came from the "No Catalog Match" profile (classical + angry). The system returned *Moonlit Sonata* (a classical piece) at #1 because the genre match (+2.0) outweighed the mood match (+1.5). A real classical music fan would likely be baffled to see *Iron Cathedral* by Gravemass — a metal song — at #2 on a classical profile, but the formula considered it a reasonable suggestion because it matched the "angry" mood and had decent energy. The system was technically correct but intuitively wrong, and there was nothing in the output to explain that both primary preferences had failed simultaneously.
 
 ---
 
