@@ -167,7 +167,25 @@ class MusicBot:
                     scored.append((score, filename, text))
 
         scored.sort(key=lambda x: x[0], reverse=True)
-        return [(filename, text) for _, filename, text in scored[:top_k]]
+        # Return (filename, text, score) so callers can compute confidence
+        return [(filename, text, score) for score, filename, text in scored[:top_k]]
+
+    def retrieval_confidence(self, query, snippets):
+        """
+        Return a 0.0–1.0 confidence score based on how many unique query tokens
+        the top retrieved snippet matched.  0.0 means no snippets found.
+        """
+        if not snippets:
+            return 0.0
+        unique_tokens = {
+            t.strip(".,!?;:()[]\"'")
+            for t in query.lower().split()
+            if t.strip(".,!?;:()[]\"'")
+        }
+        if not unique_tokens:
+            return 0.0
+        top_score = snippets[0][2]
+        return round(min(top_score / len(unique_tokens), 1.0), 2)
 
     # -----------------------------------------------------------
     # Answering Modes
@@ -177,6 +195,7 @@ class MusicBot:
         """
         Phase 1 retrieval only mode.
         Returns raw snippets and filenames with no LLM involved.
+        Includes a confidence score derived from how well the top snippet matched.
         """
         if not self.is_on_topic(query):
             logger.info("Guardrail triggered (retrieval): off-topic query: %r", query)
@@ -184,14 +203,15 @@ class MusicBot:
 
         logger.info("Retrieval-only query: %r", query)
         snippets = self.retrieve(query, top_k=top_k)
-        logger.info("Retrieved %d snippet(s)", len(snippets))
+        confidence = self.retrieval_confidence(query, snippets)
+        logger.info("Retrieved %d snippet(s) | confidence=%.2f", len(snippets), confidence)
 
         if not snippets:
             return "I do not know based on these docs."
 
-        formatted = []
-        for filename, text in snippets:
-            formatted.append(f"[{filename}]\n{text}\n")
+        formatted = [f"[Retrieval confidence: {confidence:.0%}]\n"]
+        for filename, text, score in snippets:
+            formatted.append(f"[{filename}] (score: {score})\n{text}\n")
 
         return "\n---\n".join(formatted)
 
@@ -212,12 +232,17 @@ class MusicBot:
 
         logger.info("RAG query: %r", query)
         snippets = self.retrieve(query, top_k=top_k)
-        logger.info("Retrieved %d snippet(s) for RAG; calling LLM", len(snippets))
+        confidence = self.retrieval_confidence(query, snippets)
+        logger.info("Retrieved %d snippet(s) for RAG | confidence=%.2f; calling LLM",
+                    len(snippets), confidence)
 
         if not snippets:
             return "I do not know based on these docs."
 
-        return self.llm_client.answer_from_snippets(query, snippets)
+        # Pass only (filename, text) to the LLM client
+        return self.llm_client.answer_from_snippets(
+            query, [(f, t) for f, t, _ in snippets]
+        )
 
     # -----------------------------------------------------------
     # Bonus Helper: concatenated docs for naive generation mode
