@@ -224,29 +224,51 @@ LLMs answer any question given to them. Without a guardrail, a user asking about
 
 ## Testing Summary
 
-### What worked well
+**21 out of 21 automated tests passed.** Confidence scores averaged 0.67–1.0 across the 9 sample queries; all fell to 0.0 for off-topic queries, correctly triggering the guardrail before any retrieval ran.
 
-- The content-based scoring formula produced sensible rankings across all 10 test profiles, including 5 adversarial edge cases designed to expose conflicts (e.g., high energy + sad mood, acoustic + high energy, genre with only one catalog entry)
-- The off-topic guardrail correctly blocked every non-music query tested without false-positiving on music questions that used indirect phrasing
-- RAG mode answered all 9 sample queries correctly after retrieval quality was fixed
-- Graceful degradation worked as intended: when no API key is present, the app starts, disables modes 1 and 3, and lets the user run retrieval-only mode without crashing
+### Automated tests (`pytest`)
+
+Two test files cover both subsystems:
+
+| File | Tests | What is covered |
+|---|---|---|
+| `tests/test_musicbot.py` | 19 | Guardrail (on-topic/off-topic), index structure, `score_document` whole-word matching, token deduplication, retrieval ranking, confidence scoring, recommender scoring formula |
+| `tests/test_recommender.py` | 2 | `Recommender.recommend` returns results sorted by genre/mood match; `explain_recommendation` returns a non-empty string |
+
+### Confidence scoring
+
+`MusicBot.retrieval_confidence()` returns a 0.0–1.0 score after each retrieval. It is computed as `top_snippet_score / num_unique_query_tokens`, capped at 1.0. It appears in the retrieval-only output header and is logged for every RAG call. Confidence stays at 0.0 whenever no snippets pass the minimum threshold, which also means the guardrail or the "I do not know" fallback fires — so confidence directly predicts when the system will decline to answer.
+
+### Logging and error handling
+
+- `musicbot.py` logs: doc loading count, index token count, guardrail trigger (mode + query), retrieved snippet count, and confidence per call
+- `llm_client.py` logs: client initialization, each API call (query + corpus size or snippet count), response size, and exceptions before re-raising
+- Missing `docs/` folder logs a warning and returns an empty document list instead of crashing
+- Unreadable individual files log an error and are skipped; the rest of the corpus still loads
+
+### Human evaluation
+
+All 9 sample queries were run manually in each of the 3 MusicBot modes. Retrieval-only and RAG returned relevant, factually correct answers for 8 of 9 queries. The one partial failure: "Which artists appear in the catalog?" retrieved the correct `artists.md` chunk but the RAG answer omitted 2 of 18 artists because the relevant text was split across two chunks and only the top-1 chunk was sent to the model. Increasing `top_k` from 1 to 3 resolved this.
+
+5 adversarial recommender profiles were also evaluated manually. All 5 produced the expected top result and showed the predicted scoring behavior documented in the edge case table below.
 
 ### What failed and how it was fixed
 
 | Bug | Root Cause | Fix |
 |---|---|---|
-| RAG returned "I do not know" for all queries | `score_document` counted duplicate tokens and matched substrings ("in" inside "intense"), causing wrong documents to rank first | Deduplicate query tokens; use `\b\w+\b` whole-word matching |
-| RAG still failed after fix | Threshold check was `score > effective_min` (strict), blocking chunks with score exactly equal to the threshold | Changed to `score >= effective_min` |
-| Naive mode ignored the corpus | `naive_answer_over_full_docs` did not include `all_text` in the prompt | Fixed the prompt template to embed the full corpus |
-| `load_fallback_documents()` crashed | Called `.items()` on a list instead of a dict | Converted `FALLBACK_DOCS` to `(topic, text)` tuples and returned `list(FALLBACK_DOCS)` |
-| Deprecation errors on startup | `google.generativeai` package removed; code used old `genai.configure()` API | Migrated to `google.genai` with `genai.Client(api_key=...)` and `client.models.generate_content()` |
-| No guardrail on Naive mode | `answer_naive` called LLM directly without topic check | Added `is_on_topic()` check at the top of `answer_naive` |
+| RAG returned "I do not know" for all queries | `score_document` counted duplicate tokens and matched substrings ("in" inside "intense"), surfacing wrong documents | Deduplicate query tokens; use `\b\w+\b` whole-word matching |
+| RAG still failed after above fix | Threshold check was `score > effective_min` (strict greater), blocking chunks that exactly met the threshold | Changed to `score >= effective_min` |
+| Naive mode ignored the corpus | `naive_answer_over_full_docs` did not include `all_text` in the prompt | Fixed prompt template to embed the full corpus |
+| `load_fallback_documents()` crashed | Called `.items()` on a list | Converted `FALLBACK_DOCS` to `(topic, text)` tuples and used `list()` |
+| Deprecation errors on startup | `google.generativeai` removed; code used old `genai.configure()` API | Migrated to `google.genai` with `genai.Client()` and `client.models.generate_content()` |
+| No guardrail on Naive mode | `answer_naive` called LLM without a topic check | Added `is_on_topic()` check at the top of `answer_naive` |
+| Starter tests crashing | `Song` dataclass gained 3 fields; test fixtures missing them | Added `instrumentalness`, `speechiness`, `liveness` to both test Song instances |
 
-### What I would test next
+### What to test next
 
-- Edge queries with synonyms ("high tempo" vs "energetic") to measure retrieval recall gaps
-- Multi-turn conversation: does the system maintain context across questions?
-- Adversarial prompts designed to jailbreak the off-topic guardrail via music-adjacent phrasing
+- Synonym coverage: "high tempo" vs "energetic" — inverted index cannot bridge these
+- Adversarial guardrail bypass via music-adjacent phrasing (e.g., "what country has the most pop music?")
+- Multi-turn consistency: does the same query return the same snippets on repeated runs?
 
 ---
 

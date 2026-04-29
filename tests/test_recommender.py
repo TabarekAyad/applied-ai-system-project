@@ -13,6 +13,9 @@ def make_small_recommender() -> Recommender:
             valence=0.9,
             danceability=0.8,
             acousticness=0.2,
+            instrumentalness=0.0,
+            speechiness=0.05,
+            liveness=0.1,
         ),
         Song(
             id=2,
@@ -25,6 +28,9 @@ def make_small_recommender() -> Recommender:
             valence=0.6,
             danceability=0.5,
             acousticness=0.9,
+            instrumentalness=0.1,
+            speechiness=0.03,
+            liveness=0.08,
         ),
     ]
     return Recommender(songs)
