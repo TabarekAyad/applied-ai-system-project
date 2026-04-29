@@ -75,6 +75,37 @@ class MusicBot:
         return index
 
     # -----------------------------------------------------------
+    # Guardrails
+    # -----------------------------------------------------------
+
+    _MUSIC_KEYWORDS = {
+        # entities
+        "song", "songs", "artist", "artists", "album", "track", "tracks",
+        "playlist", "catalog", "music",
+        # attributes
+        "genre", "mood", "energy", "tempo", "acoustic", "acousticness",
+        "valence", "danceability", "instrumental", "vocal",
+        # genres
+        "pop", "rock", "lofi", "jazz", "edm", "metal", "folk", "ambient",
+        "classical", "synthwave", "hiphop", "hip-hop", "rnb", "r&b",
+        "electronic", "indie", "dreampop", "dream",
+        # moods
+        "happy", "chill", "intense", "relaxed", "focused", "moody",
+        "sad", "angry", "dreamy", "nostalgic", "romantic",
+        # use cases
+        "workout", "study", "studying", "coding", "sleep", "party",
+        "gym", "focus", "concentration", "background",
+        # actions
+        "recommend", "recommendation", "suggest", "play", "listen",
+        "find", "search", "list", "show", "top", "best", "highest", "lowest",
+    }
+
+    def is_on_topic(self, query):
+        """Return True if the query contains at least one music-related keyword."""
+        words = {w.strip(".,!?;:()[]\"'") for w in query.lower().split()}
+        return bool(words & self._MUSIC_KEYWORDS)
+
+    # -----------------------------------------------------------
     # Scoring and Retrieval (Phase 1)
     # -----------------------------------------------------------
 
@@ -131,6 +162,9 @@ class MusicBot:
         Phase 1 retrieval only mode.
         Returns raw snippets and filenames with no LLM involved.
         """
+        if not self.is_on_topic(query):
+            return "I can only answer questions about the music catalog."
+
         snippets = self.retrieve(query, top_k=top_k)
 
         if not snippets:
@@ -152,6 +186,9 @@ class MusicBot:
             raise RuntimeError(
                 "RAG mode requires an LLM client. Provide a GeminiClient instance."
             )
+
+        if not self.is_on_topic(query):
+            return "I can only answer questions about the music catalog."
 
         snippets = self.retrieve(query, top_k=top_k)
 
