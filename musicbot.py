@@ -80,17 +80,19 @@ class MusicBot:
 
     def score_document(self, query, text):
         """
-        TODO (Phase 1):
-        Return a simple relevance score for how well the text matches the query.
+        Return a relevance score for how well the text matches the query.
 
-        Suggested baseline:
-        - Convert query into lowercase words
-        - Count how many appear in the text
-        - Return the count as the score
+        Deduplicates query tokens and uses whole-word matching so common short
+        words like 'in' do not match inside longer words like 'intense'.
         """
-        query_tokens = query.lower().split()
-        text_lower = text.lower()
-        return sum(1 for token in query_tokens if token in text_lower)
+        import re
+        text_words = set(re.findall(r"\b\w+\b", text.lower()))
+        unique_tokens = {
+            t.strip(".,!?;:()[]\"'")
+            for t in query.lower().split()
+            if t.strip(".,!?;:()[]\"'")
+        }
+        return sum(1 for token in unique_tokens if token in text_words)
 
     def retrieve(self, query, top_k=3, min_score=2):
         """
@@ -114,7 +116,7 @@ class MusicBot:
         for filename, text in self.documents:
             if filename in candidate_filenames:
                 score = self.score_document(query, text)
-                if score > effective_min:
+                if score >= effective_min:
                     scored.append((score, filename, text))
 
         scored.sort(key=lambda x: x[0], reverse=True)
