@@ -8,7 +8,10 @@ Handles:
 """
 
 import os
+import logging
 from google import genai
+
+logger = logging.getLogger("musicbot.llm")
 
 GEMINI_MODEL_NAME = "gemini-2.5-flash"
 
@@ -32,6 +35,7 @@ class GeminiClient:
                 "Set it in your shell or .env file to enable LLM features."
             )
         self.client = genai.Client(api_key=api_key)
+        logger.info("GeminiClient initialized with model '%s'", GEMINI_MODEL_NAME)
 
     # -----------------------------------------------------------
     # Phase 0: naive generation over full docs
@@ -39,6 +43,7 @@ class GeminiClient:
 
     def naive_answer_over_full_docs(self, query, all_text):
         """Send the full corpus and query to the LLM with no retrieval filtering."""
+        logger.info("Naive LLM call | query=%r | corpus_chars=%d", query, len(all_text))
         prompt = f"""You are a music assistant with access to a song catalog.
 Answer the following question using the catalog information provided.
 
@@ -47,11 +52,17 @@ Catalog:
 
 Question: {query}
 """
-        response = self.client.models.generate_content(
-            model=GEMINI_MODEL_NAME,
-            contents=prompt,
-        )
-        return (response.text or "").strip()
+        try:
+            response = self.client.models.generate_content(
+                model=GEMINI_MODEL_NAME,
+                contents=prompt,
+            )
+            result = (response.text or "").strip()
+            logger.info("Naive LLM response received (%d chars)", len(result))
+            return result
+        except Exception as exc:
+            logger.error("Naive LLM call failed: %s", exc)
+            raise
 
     # -----------------------------------------------------------
     # Phase 2: RAG style generation over retrieved snippets
@@ -61,6 +72,8 @@ Question: {query}
         """Generate an answer using only the retrieved snippets."""
         if not snippets:
             return "I do not know based on the docs I have."
+
+        logger.info("RAG LLM call | query=%r | snippets=%d", query, len(snippets))
 
         context_blocks = []
         for topic, text in snippets:
@@ -90,8 +103,14 @@ Rules:
   "I do not know based on the docs I have."
 - When you do answer, briefly mention which topic you relied on.
 """
-        response = self.client.models.generate_content(
-            model=GEMINI_MODEL_NAME,
-            contents=prompt,
-        )
-        return (response.text or "").strip()
+        try:
+            response = self.client.models.generate_content(
+                model=GEMINI_MODEL_NAME,
+                contents=prompt,
+            )
+            result = (response.text or "").strip()
+            logger.info("RAG LLM response received (%d chars)", len(result))
+            return result
+        except Exception as exc:
+            logger.error("RAG LLM call failed: %s", exc)
+            raise

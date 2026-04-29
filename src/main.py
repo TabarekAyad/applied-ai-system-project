@@ -205,12 +205,11 @@ def _run_naive_llm(musicbot, has_llm: bool) -> None:
         return
     queries, label = _get_query_or_samples()
     print(f"\nRunning naive LLM mode on {label}...\n")
-    all_text = musicbot.full_corpus_text()
     for query in queries:
         print("=" * 60)
         print(f"Question: {query}\n")
         print("Answer:")
-        print(musicbot.llm_client.naive_answer_over_full_docs(query, all_text))
+        print(musicbot.answer_naive(query))
         print()
 
 

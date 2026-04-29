@@ -9,6 +9,10 @@ Core MusicBot class responsible for:
 
 import os
 import glob
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s [%(name)s] %(message)s")
+logger = logging.getLogger("musicbot")
 
 class MusicBot:
     def __init__(self, docs_folder="docs", llm_client=None):
@@ -21,9 +25,11 @@ class MusicBot:
 
         # Load documents into memory
         self.documents = self.load_documents()  # List of (filename, text)
+        logger.info("Loaded %d document chunks from '%s'", len(self.documents), docs_folder)
 
         # Build a retrieval index (implemented in Phase 1)
         self.index = self.build_index(self.documents)
+        logger.info("Index built: %d unique tokens", len(self.index))
 
     # -----------------------------------------------------------
     # Document Loading
@@ -36,15 +42,25 @@ class MusicBot:
         """
         docs = []
         pattern = os.path.join(self.docs_folder, "*.*")
+        if not os.path.isdir(self.docs_folder):
+            logger.warning("docs_folder '%s' not found — no documents loaded", self.docs_folder)
+            return docs
         for path in glob.glob(pattern):
             if path.endswith(".md") or path.endswith(".txt"):
-                with open(path, "r", encoding="utf8") as f:
-                    text = f.read()
+                try:
+                    with open(path, "r", encoding="utf8") as f:
+                        text = f.read()
+                except OSError as exc:
+                    logger.error("Could not read '%s': %s", path, exc)
+                    continue
                 filename = os.path.basename(path)
+                chunks_added = 0
                 for chunk in text.split("\n\n"):
                     chunk = chunk.strip()
                     if len(chunk) > 30:
                         docs.append((filename, chunk))
+                        chunks_added += 1
+                logger.debug("  %s → %d chunks", filename, chunks_added)
         return docs
 
     # -----------------------------------------------------------
@@ -163,9 +179,12 @@ class MusicBot:
         Returns raw snippets and filenames with no LLM involved.
         """
         if not self.is_on_topic(query):
+            logger.info("Guardrail triggered (retrieval): off-topic query: %r", query)
             return "I can only answer questions about the music catalog."
 
+        logger.info("Retrieval-only query: %r", query)
         snippets = self.retrieve(query, top_k=top_k)
+        logger.info("Retrieved %d snippet(s)", len(snippets))
 
         if not snippets:
             return "I do not know based on these docs."
@@ -188,9 +207,12 @@ class MusicBot:
             )
 
         if not self.is_on_topic(query):
+            logger.info("Guardrail triggered (RAG): off-topic query: %r", query)
             return "I can only answer questions about the music catalog."
 
+        logger.info("RAG query: %r", query)
         snippets = self.retrieve(query, top_k=top_k)
+        logger.info("Retrieved %d snippet(s) for RAG; calling LLM", len(snippets))
 
         if not snippets:
             return "I do not know based on these docs."
@@ -200,6 +222,19 @@ class MusicBot:
     # -----------------------------------------------------------
     # Bonus Helper: concatenated docs for naive generation mode
     # -----------------------------------------------------------
+
+    def answer_naive(self, query):
+        """
+        Phase 0 naive mode entry point with guardrail.
+        Delegates to the LLM client with the full corpus.
+        """
+        if not self.is_on_topic(query):
+            logger.info("Guardrail triggered (naive): off-topic query: %r", query)
+            return "I can only answer questions about the music catalog."
+        if self.llm_client is None:
+            raise RuntimeError("Naive mode requires an LLM client.")
+        logger.info("Naive LLM query: %r", query)
+        return self.llm_client.naive_answer_over_full_docs(query, self.full_corpus_text())
 
     def full_corpus_text(self):
         """
