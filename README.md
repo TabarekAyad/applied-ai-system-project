@@ -1,5 +1,7 @@
 # MoodTune — Applied AI System
 
+**GitHub:** https://github.com/TabarekAyad/applied-ai-system-project
+
 ## Original Project
 
 This project extends **Music Recommender System** (Modules 1–3), a content-based music recommendation engine. The original system scored a 20-song catalog against a user's taste profile (genre, mood, target energy, acoustic preference) using a weighted formula with a maximum score of 6.0. It returned the top 5 ranked songs with plain-language explanations for why each was recommended.
@@ -62,7 +64,7 @@ This project extends **Music Recommender System** (Modules 1–3), a content-bas
 ### 1. Clone the repository
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/TabarekAyad/applied-ai-system-project.git
 cd applied-ai-system-project
 ```
 

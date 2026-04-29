@@ -15,8 +15,9 @@ try:
     from llm_client import GeminiClient
     from dataset import SAMPLE_QUERIES
     _MUSICBOT_AVAILABLE = True
-except ImportError:
+except ImportError as _e:
     _MUSICBOT_AVAILABLE = False
+    _MUSICBOT_IMPORT_ERROR = str(_e)
 
 
 ADVERSARIAL_PROFILES = [
@@ -239,8 +240,9 @@ def _run_rag(musicbot, has_llm: bool) -> None:
 def run_musicbot() -> None:
     """Interactive loop for the three MusicBot modes."""
     if not _MUSICBOT_AVAILABLE:
-        print("\nMusicBot is not available yet.")
-        print("Required modules (musicbot.py, llm_client.py, dataset.py) are missing.\n")
+        print("\nMusicBot failed to load.")
+        print(f"Import error: {_MUSICBOT_IMPORT_ERROR}")
+        print("Run: pip install -r requirements.txt\n")
         return
 
     print("\nMusicBot")

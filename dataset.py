@@ -8,16 +8,50 @@ DOCS_CORPUS: text snippets MusicBot indexes and searches to answer questions.
 SAMPLE_QUERIES = [
     # Catalog exploration
     "Which songs have the highest energy in the catalog?",
+    "Which songs have the lowest energy in the catalog?",
     "What songs are available in the lofi genre?",
+    "What pop songs are in the catalog?",
+    "Which songs are in the r&b genre?",
+    "Are there any metal songs in the catalog?",
+    "Which songs are electronic or EDM?",
+    "What folk or indie folk songs are available?",
     "Which songs have a happy mood?",
+    "Which songs have a sad mood?",
+    "Which songs have a dreamy mood?",
+    "Which songs have a relaxed mood?",
+    "Which songs have a moody mood?",
     "List all acoustic songs in the catalog.",
+    "Which songs are the least acoustic?",
+    "Which songs are best for dancing?",
+    "Which songs have the highest tempo?",
     "Which artists appear in the catalog?",
+    "Which artists have more than one song in the catalog?",
+
+    # Individual song lookup
+    "Tell me about Sunrise City.",
+    "What genre and mood is Night Drive Loop?",
+    "How energetic is Iron Cathedral?",
+    "Is Moonlit Sonata acoustic?",
+    "What is the mood of Gold Chain Daydream?",
+    "Who performs Coffee Shop Stories?",
+    "Compare Focus Flow and Midnight Coding.",
+    "Compare Cabin Smoke and Broken Compass.",
 
     # Recommendation reasoning
     "What song would you recommend for an intense workout?",
     "What would you suggest for a late-night study session?",
     "Which songs are best for someone who likes chill, acoustic music?",
     "What are the top songs for a high-energy pop lover?",
+    "What should I play for a calm coffee shop vibe?",
+    "What should I play for a sad acoustic evening?",
+    "What songs would fit a dreamy nighttime playlist?",
+    "What songs would fit a nostalgic drive?",
+    "What should I play for a romantic relaxed mood?",
+    "What would you suggest for a high-energy dance playlist?",
+    "What should I play if I want angry or intense music?",
+    "What songs are good for coding or focus?",
+    "What would you recommend for relaxing without too much energy?",
+    "What songs should I avoid if I want quiet acoustic music?",
 ]
 
 # ---------------------------------------------------------------------------
