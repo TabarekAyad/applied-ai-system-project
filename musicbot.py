@@ -1,5 +1,5 @@
 """
-Core DocuBot class responsible for:
+Core MusicBot class responsible for:
 - Loading documents from the docs/ folder
 - Building a simple retrieval index (Phase 1)
 - Retrieving relevant snippets (Phase 1)
@@ -10,7 +10,7 @@ Core DocuBot class responsible for:
 import os
 import glob
 
-class DocuBot:
+class MusicBot:
     def __init__(self, docs_folder="docs", llm_client=None):
         """
         docs_folder: directory containing project documentation files

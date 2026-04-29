@@ -1,15 +1,22 @@
 """
-Command line runner for the Music Recommender Simulation.
+Command line runner for the Music Recommender Simulation and MusicBot.
 
-This file helps you quickly run and test your recommender.
-
-You will implement the functions in recommender.py:
-- load_songs
-- score_song
-- recommend_songs
+Music Recommender: content-based scoring over a song catalog.
+MusicBot: three-mode Q&A assistant (naive LLM, retrieval only, RAG).
 """
 
 from src.recommender import load_songs, recommend_songs
+
+# MusicBot imports — only available once musicbot.py, llm_client.py, dataset.py exist.
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    from musicbot import MusicBot
+    from llm_client import GeminiClient
+    from dataset import SAMPLE_QUERIES
+    _MUSICBOT_AVAILABLE = True
+except ImportError:
+    _MUSICBOT_AVAILABLE = False
 
 
 ADVERSARIAL_PROFILES = [
@@ -124,7 +131,8 @@ def print_recommendations(profile: dict, songs: list, k: int = 5) -> None:
         print()
 
 
-def main() -> None:
+def run_recommender() -> None:
+    """Run the music recommender over all standard and adversarial profiles."""
     songs = load_songs("data/songs.csv")
     print(f"\n{'='*54}")
     print(f"  Catalog: {len(songs)} songs loaded")
@@ -140,6 +148,137 @@ def main() -> None:
     print(f"{'='*54}")
     for profile in ADVERSARIAL_PROFILES:
         print_recommendations(profile, songs, k=5)
+
+
+# ── MusicBot ──────────────────────────────────────────────────────────────────
+
+def _try_create_llm_client():
+    """Return (GeminiClient, True) or (None, False) if the key is missing."""
+    try:
+        client = GeminiClient()
+        return client, True
+    except RuntimeError as exc:
+        print("Warning: LLM features are disabled.")
+        print(f"Reason: {exc}")
+        print("You can still run retrieval only mode.\n")
+        return None, False
+
+
+def _choose_musicbot_mode(has_llm: bool) -> str:
+    """Print the mode menu and return the user's choice."""
+    print("\nChoose a mode:")
+    if has_llm:
+        print("  1) Naive LLM over full docs (no retrieval)")
+    else:
+        print("  1) Naive LLM over full docs (unavailable — no GEMINI_API_KEY)")
+    print("  2) Retrieval only (no LLM)")
+    if has_llm:
+        print("  3) RAG (retrieval + LLM)")
+    else:
+        print("  3) RAG (unavailable — no GEMINI_API_KEY)")
+    print("  q) Quit MusicBot")
+    return input("Enter choice: ").strip().lower()
+
+
+def _get_query_or_samples():
+    """Return (list of query strings, label). Uses SAMPLE_QUERIES if input is blank."""
+    print("\nPress Enter to run built-in sample queries.")
+    custom = input("Or type a single custom query: ").strip()
+    if custom:
+        return [custom], "custom query"
+    return SAMPLE_QUERIES, "sample queries"
+
+
+def _run_naive_llm(musicbot, has_llm: bool) -> None:
+    """Mode 1: send full corpus to LLM and generate an answer."""
+    if not has_llm or musicbot.llm_client is None:
+        print("\nNaive LLM mode is not available (no GEMINI_API_KEY).\n")
+        return
+    queries, label = _get_query_or_samples()
+    print(f"\nRunning naive LLM mode on {label}...\n")
+    all_text = musicbot.full_corpus_text()
+    for query in queries:
+        print("=" * 60)
+        print(f"Question: {query}\n")
+        print("Answer:")
+        print(musicbot.llm_client.naive_answer_over_full_docs(query, all_text))
+        print()
+
+
+def _run_retrieval_only(musicbot) -> None:
+    """Mode 2: retrieve and rank snippets; no LLM."""
+    queries, label = _get_query_or_samples()
+    print(f"\nRunning retrieval only mode on {label}...\n")
+    for query in queries:
+        print("=" * 60)
+        print(f"Question: {query}\n")
+        print("Retrieved snippets:")
+        print(musicbot.answer_retrieval_only(query))
+        print()
+
+
+def _run_rag(musicbot, has_llm: bool) -> None:
+    """Mode 3: retrieve snippets then generate a grounded LLM answer."""
+    if not has_llm or musicbot.llm_client is None:
+        print("\nRAG mode is not available (no GEMINI_API_KEY).\n")
+        return
+    queries, label = _get_query_or_samples()
+    print(f"\nRunning RAG mode on {label}...\n")
+    for query in queries:
+        print("=" * 60)
+        print(f"Question: {query}\n")
+        print("Answer:")
+        print(musicbot.answer_rag(query))
+        print()
+
+
+def run_musicbot() -> None:
+    """Interactive loop for the three MusicBot modes."""
+    if not _MUSICBOT_AVAILABLE:
+        print("\nMusicBot is not available yet.")
+        print("Required modules (musicbot.py, llm_client.py, dataset.py) are missing.\n")
+        return
+
+    print("\nMusicBot")
+    print("========\n")
+    llm_client, has_llm = _try_create_llm_client()
+    musicbot = MusicBot(llm_client=llm_client)
+
+    while True:
+        choice = _choose_musicbot_mode(has_llm)
+        if choice == "q":
+            print("\nExiting MusicBot.\n")
+            break
+        elif choice == "1":
+            _run_naive_llm(musicbot, has_llm)
+        elif choice == "2":
+            _run_retrieval_only(musicbot)
+        elif choice == "3":
+            _run_rag(musicbot, has_llm)
+        else:
+            print("\nUnknown choice. Please pick 1, 2, 3, or q.\n")
+
+
+# ── Entry point ───────────────────────────────────────────────────────────────
+
+def main() -> None:
+    """Top-level menu: choose between the music recommender and MusicBot."""
+    print("\n╔══════════════════════════════════════╗")
+    print("║   Applied AI System — Main Menu      ║")
+    print("╚══════════════════════════════════════╝")
+    print("  1) Music Recommender")
+    print("  2) MusicBot (Q&A assistant)")
+    print("  q) Quit")
+    choice = input("\nEnter choice: ").strip().lower()
+
+    if choice == "1":
+        run_recommender()
+    elif choice == "2":
+        run_musicbot()
+    elif choice == "q":
+        print("Goodbye.")
+    else:
+        print("Unknown choice.")
 
 
 if __name__ == "__main__":
