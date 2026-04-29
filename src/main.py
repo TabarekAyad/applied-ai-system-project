@@ -132,7 +132,7 @@ def print_recommendations(profile: dict, songs: list, k: int = 5) -> None:
 
 
 def run_recommender() -> None:
-    """Run the music recommender over all standard and adversarial profiles."""
+    """Load the catalog, let the user pick one profile, and show its recommendations."""
     songs = load_songs("data/songs.csv")
     print(f"\n{'='*54}")
     print(f"  Catalog: {len(songs)} songs loaded")
@@ -140,14 +140,23 @@ def run_recommender() -> None:
     for song in songs:
         print(f"  {song['id']:>2}. {song['title']:<28} [{song['genre']:<10}] [{song['mood']:<10}] energy={song['energy']:.2f}")
 
-    for profile in PROFILES:
-        print_recommendations(profile, songs, k=5)
+    all_profiles = PROFILES + ADVERSARIAL_PROFILES
 
     print(f"\n{'='*54}")
-    print(f"  ADVERSARIAL / EDGE CASE PROFILES")
+    print(f"  Select a Profile")
     print(f"{'='*54}")
-    for profile in ADVERSARIAL_PROFILES:
-        print_recommendations(profile, songs, k=5)
+    for i, profile in enumerate(all_profiles, 1):
+        print(f"  {i:>2}) {profile['name']}")
+
+    print()
+    choice = input("  Enter profile number: ").strip()
+
+    if not choice.isdigit() or not (1 <= int(choice) <= len(all_profiles)):
+        print(f"\n  Invalid choice. Please enter a number between 1 and {len(all_profiles)}.")
+        return
+
+    selected = all_profiles[int(choice) - 1]
+    print_recommendations(selected, songs, k=5)
 
 
 # ── MusicBot ──────────────────────────────────────────────────────────────────
