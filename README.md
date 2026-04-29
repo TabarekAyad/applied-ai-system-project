@@ -272,9 +272,58 @@ All 9 sample queries were run manually in each of the 3 MusicBot modes. Retrieva
 
 ---
 
-## Reflection
+## Reflection and Ethics
 
+### What are the limitations or biases in your system?
 
+**Music Recommender**
+
+The scoring formula contains several embedded assumptions that act as biases:
+
+- **Genre is binary.** A genre mismatch always scores 0.0 regardless of cultural proximity. Rock and pop are sonically adjacent; rock and classical are not. The system treats both misses identically, so a user who likes indie pop may receive EDM before folk because the energy number happened to align.
+- **Single-mood profile.** A user who listens to `chill` music when studying and `intense` music when exercising cannot be represented. Forcing one mood means context-switching listeners always get a compromised result, and the system silently chooses for them.
+- **Small catalog overfit.** With only 20 songs, genres like `metal`, `classical`, and `edm` have exactly one representative each. A user whose favorite genre is `metal` will always receive *Iron Cathedral* as their top result regardless of how poorly the energy or mood matches, because there are no alternatives.
+- **Energy dominates when categorical signals fail.** A song with a perfect energy match but mismatched genre and mood can outrank a genre+mood match that sits at a slightly different energy level. This mirrors how real systems can recommend things that feel technically close but contextually wrong.
+- **Acousticness is a boolean.** `likes_acoustic=True` rewards a song with acousticness 0.60 and one with 0.97 equally. This bluntness over-rewards sparse, near-silent tracks for users who might just want a "warmer" sound, not an unplugged performance.
+
+**MusicBot**
+
+- **Keyword-only guardrail.** The off-topic filter uses exact keyword matching. Queries phrased without any music vocabulary pass through unchecked (e.g., "What is energy?" has no music keyword but is ambiguous). Conversely, a genuinely off-topic question that happens to contain the word "pop" or "top" will pass the guardrail and reach the retrieval step.
+- **Inverted index cannot handle synonyms.** A user asking "upbeat songs" will not match a document that only uses the word "energetic." The retrieval step has no semantic understanding — it only counts exact token overlap.
+- **RAG answers are only as good as the retrieved chunks.** If the most relevant information is split across two chunks and only one is retrieved, the LLM's answer will be incomplete. The system has no way to signal that its answer is partial rather than complete.
+- **LLM hallucination risk in Naive mode.** In mode 1, the full corpus is sent to Gemini with no constraints on what it can say beyond the prompt instructions. The model may still generate plausible-sounding but incorrect details about songs or artists not in the catalog.
+- **Western and English-language catalog bias.** All 20 songs use English titles and Western genre labels. A user who primarily listens to K-pop, Afrobeats, or Bollywood would find no matching genre or mood labels, and the system would fall back entirely to energy and acousticness scoring — which are genre-agnostic but culturally blind.
+
+---
+
+### Could your AI be misused, and how would you prevent that?
+
+**Realistic misuse scenarios**
+
+| Scenario | Risk |
+|---|---|
+| Prompt injection via the query field | A crafted query could try to override the LLM's system prompt in RAG or Naive mode (e.g., "Ignore previous instructions and...") |
+| Guardrail bypass through music-adjacent phrasing | Embedding a harmful request inside a music question ("What songs pair well with [harmful content]?") could slip past keyword filtering |
+| API key exposure | If `.env` is accidentally committed to a public repository, the Gemini API key becomes publicly accessible |
+| Scraping at scale | The system calls a paid API per query; an automated loop could generate large costs for the key owner |
+
+**Mitigations already in place**
+
+- The off-topic guardrail blocks the most obvious off-topic abuse before any LLM call is made, reducing unnecessary API usage.
+- The RAG prompt explicitly instructs the model to answer only from retrieved snippets and refuse to invent information, which limits (but does not eliminate) prompt injection risk.
+- `.env` is excluded from git via `.gitignore`, and `.env.example` contains only a placeholder, never a real key.
+- Logging records every query and every LLM call, so unusual usage patterns are detectable after the fact.
+
+**What would be needed for a production system**
+
+A classroom project can accept these limitations, but a deployed system would require:
+- **Input sanitization and length limits** on the query field to prevent injection attacks
+- **Rate limiting** on API calls per session to prevent cost abuse
+- **Prompt hardening** — moving the system instruction out of the user-visible prompt and into a separate system role, where it is harder to override
+- **Semantic guardrail** — replacing or supplementing keyword matching with a classifier that detects intent, not just vocabulary
+- **Output filtering** — a second pass over the LLM's response to catch cases where it generated content outside its allowed scope
+
+Building this system made clear that safety is not a feature you add at the end — the guardrail, the logging, and the retrieval grounding all had to be designed into the architecture from the start, or the LLM would simply fill the gaps with uncontrolled output.
 
 ---
 
