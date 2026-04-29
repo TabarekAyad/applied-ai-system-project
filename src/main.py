@@ -134,11 +134,7 @@ def print_recommendations(profile: dict, songs: list, k: int = 5) -> None:
 def run_recommender() -> None:
     """Load the catalog, let the user pick one profile, and show its recommendations."""
     songs = load_songs("data/songs.csv")
-    print(f"\n{'='*54}")
-    print(f"  Catalog: {len(songs)} songs loaded")
-    print(f"{'='*54}")
-    for song in songs:
-        print(f"  {song['id']:>2}. {song['title']:<28} [{song['genre']:<10}] [{song['mood']:<10}] energy={song['energy']:.2f}")
+    print(f"\n  Catalog: {len(songs)} songs loaded.")
 
     all_profiles = PROFILES + ADVERSARIAL_PROFILES
 
