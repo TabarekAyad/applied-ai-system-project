@@ -1,350 +1,281 @@
-# 🎵 Music Recommender Simulation
+# MoodTune — Applied AI System
 
-## Project Summary
+## Original Project
 
-In this project you will build and explain a small music recommender system.
-
-Your goal is to:
-
-- Represent songs and a user "taste profile" as data
-- Design a scoring rule that turns that data into recommendations
-- Evaluate what your system gets right and wrong
-- Reflect on how this mirrors real world AI recommenders
-
-This project builds a simplified content-based music recommender that scores songs against a user taste profile and returns the best matches. Each song is described by numerical features (energy, valence, danceability, acousticness, tempo) and categorical labels (genre, mood). A user profile stores their preferences, and the recommender computes a weighted score for every song in the catalog — rewarding songs that are close to the user's target energy, match their mood, align with their genre, and fit their acoustic preference. The top-scoring songs are returned as recommendations with a plain-language explanation for each.
+This project extends **Music Recommender System** (Modules 1–3), a content-based music recommendation engine. The original system scored a 20-song catalog against a user's taste profile (genre, mood, target energy, acoustic preference) using a weighted formula with a maximum score of 6.0. It returned the top 5 ranked songs with plain-language explanations for why each was recommended.
 
 ---
 
-## How The System Works
+## Title and Summary
 
-Real-world recommendation systems like Spotify or YouTube don't just match songs to a static profile — they continuously learn from behavior (skips, replays, saves) and layer multiple signals together: what you've listened to, what similar users love, the audio properties of the song itself, and even the time of day you're listening. They operate at massive scale using techniques like matrix factorization, deep neural networks on raw audio, and reinforcement learning to optimize for long-term satisfaction rather than just the next click. This version prioritizes a simpler but principled approach: **content-based filtering using four song features — energy, mood, genre, and acousticness — weighted by how much each one reflects real listening intent.** Rather than guessing from other users' behavior, it scores each song directly against a user's stated preferences and ranks the results. The goal is a system that produces explainable, sensible recommendations — one where you can trace exactly why a song was suggested and verify that the logic matches how musical "vibe" actually works.
-
-Explain your design in plain language.
-
-- What features does each `Song` use in your system
-  - For example: genre, mood, energy, tempo
-
-  Each song carries five numerical features and two categorical labels:
-  - `energy` (0.0–1.0) — intensity and loudness; the primary scoring signal
-  - `valence` (0.0–1.0) — musical positivity; used as a tie-breaker in ranking
-  - `danceability` (0.0–1.0) — rhythmic regularity; available but passive in v1
-  - `acousticness` (0.0–1.0) — absence of electronic production; scored against user preference
-  - `tempo_bpm` (BPM) — speed of the beat; correlated with energy, passive in v1
-  - `genre` (string) — categorical label matched against the user's favorite genre
-  - `mood` (string) — categorical label matched against the user's favorite mood, with partial credit for adjacent moods
-
-- What information does your `UserProfile` store
-
-  ```
-  favorite_genre   → string   e.g. "pop"
-  favorite_mood    → string   e.g. "happy"
-  target_energy    → float    e.g. 0.8
-  likes_acoustic   → bool     e.g. False
-  ```
-
-- How does your `Recommender` compute a score for each song
-
-  Each song receives a score between 0.0 and 1.0 from four weighted components:
-  ```
-  score = energy_score   × 0.40   ← squared distance from target_energy
-        + mood_score     × 0.30   ← exact=1.0, adjacent mood=0.5, miss=0.0
-        + genre_score    × 0.20   ← exact=1.0, miss=0.0
-        + acoustic_score × 0.10   ← aligned with likes_acoustic boolean
-  ```
-  Energy carries the most weight because a large energy mismatch ruins a listening session regardless of other matches. Mood outweighs genre because it captures *why* you're listening right now (context), while genre captures longer-term taste (texture).
-
-- How do you choose which songs to recommend
-
-  1. Score every song in the catalog using the formula above
-  2. Sort all songs by score, highest first
-  3. Break ties using `valence` (happier-sounding songs win)
-  4. Return the top `k` results (default `k=5`) with a plain-language explanation for each
+**MoodTune** is an applied AI system that combines a content-based music recommender with a Retrieval-Augmented Generation (RAG) Q&A assistant called MusicBot. The recommender scores songs against a user's taste profile and ranks them. MusicBot lets users ask natural-language questions about the catalog and answers them in three modes: naive LLM generation, keyword retrieval only, and full RAG (retrieval + LLM). Together, they demonstrate two distinct AI paradigms — rule-based scoring and language model reasoning — in a single runnable application.
 
 ---
 
-### Sample Output
-
-**Catalog loaded from `data/songs.csv`:**
-
-![Loaded songs](Loaded.png)
-
-**Top 5 recommendations for the pop/happy profile:**
-
-![Recommendations](Recommended.png)
-
----
-
-### Algorithm Recipe
-
-**Step 1 — Load**
-Read `data/songs.csv` into a list of `Song` objects. Each row becomes one song with all 13 fields populated.
-
-**Step 2 — Score (runs once per song)**
-For each song, compute four independent point values and sum them:
+## Architecture Overview
 
 ```
-genre_pts    = 2.0   if song.genre == user.favorite_genre
-             = 0.0   otherwise
-
-mood_pts     = 1.5   if song.mood == user.favorite_mood      (exact)
-             = 0.75  if song.mood in MOOD_NEIGHBORS[user.favorite_mood]  (adjacent)
-             = 0.0   otherwise
-
-energy_pts   = 2.0 × (1.0 − (song.energy − user.target_energy)²)
-
-acoustic_pts = 0.5 × song.acousticness        if user.likes_acoustic
-             = 0.5 × (1.0 − song.acousticness) otherwise
-
-score = genre_pts + mood_pts + energy_pts + acoustic_pts
+┌─────────────────────────────────────────────────────────┐
+│                     src/main.py                         │
+│           Top-level menu: Recommender | MusicBot        │
+└────────────────┬──────────────────┬─────────────────────┘
+                 │                  │
+     ┌───────────▼──────┐  ┌────────▼──────────────────┐
+     │  Music Recommender│  │         MusicBot           │
+     │  src/recommender.py│  │       musicbot.py          │
+     │                  │  │                            │
+     │  data/songs.csv  │  │  docs/*.md  ← knowledge    │
+     │  20 songs        │  │  base (6 files)            │
+     │                  │  │                            │
+     │  Scoring formula │  │  ┌─────────────────────┐  │
+     │  genre  0.20     │  │  │   Inverted Index     │  │
+     │  mood   0.30     │  │  │   build_index()      │  │
+     │  energy 0.40     │  │  │   retrieve()         │  │
+     │  acoustic 0.10   │  │  └──────────┬──────────┘  │
+     └──────────────────┘  │             │              │
+                           │  ┌──────────▼──────────┐  │
+                           │  │   llm_client.py      │  │
+                           │  │   GeminiClient       │  │
+                           │  │   gemini-2.5-flash   │  │
+                           │  └─────────────────────┘  │
+                           └───────────────────────────┘
 ```
 
-Maximum possible score: **6.0**
+**Music Recommender flow:**
+1. Load `data/songs.csv` into a list of song dictionaries
+2. User selects a taste profile (genre, mood, energy, acoustic preference)
+3. Score every song with the weighted formula (max 6.0)
+4. Return top 5 with a score bar and plain-language reasons
 
-**Step 3 — Rank**
-Sort all scored songs by score descending. Tie-break by `valence` (higher valence wins). Return the top `k` songs (default `k=5`).
-
-**Step 4 — Explain**
-For each returned song, build a plain-language string naming which components contributed: genre match, mood match, energy proximity, acoustic alignment.
+**MusicBot flow:**
+1. Load and chunk all `.md` files in `docs/` into `(filename, text)` pairs
+2. Build an inverted index mapping tokens → filenames
+3. On each query, check the off-topic guardrail first
+4. **Mode 1 — Naive:** send the full corpus text to Gemini with no filtering
+5. **Mode 2 — Retrieval only:** score chunks against the query, return top 3 raw snippets
+6. **Mode 3 — RAG:** retrieve top 3 snippets, then ask Gemini to answer using only those
 
 ---
 
-### Potential Biases
+## Setup Instructions
 
-- **Genre binary penalty** — a genre miss always scores 0.0 regardless of how close the genre is. Rock and pop are culturally adjacent; rock and classical are not. The system treats both misses identically, which can surface surprising results when energy happens to match.
+### 1. Clone the repository
 
-- **Single-mood profile** — a user who listens to both `intense` and `chill` music depending on context cannot be represented. The profile forces a single mood choice, which means context-switching listeners always get a compromised recommendation.
-
-- **Small catalog overfit** — with only 20 songs, some genres (`edm`, `classical`, `metal`) have exactly one representative. A user whose favorite genre is `edm` will get *Pulse Grid* as their top result no matter what — the system has no alternatives to offer even if the user's energy or mood preference doesn't match well.
-
-- **Energy dominates low-metadata songs** — songs that miss on genre and mood can still rank highly if their energy is close to the target. This means a well-placed mid-energy track can outrank a genre+mood match that sits at a slightly different energy level.
-
-- **Acousticness as a boolean** — `likes_acoustic=True` rewards all acoustic songs equally, whether they are 0.60 or 0.97 acoustic. This bluntness can over-reward songs the user might find too sparse or under-reward ones that are almost-but-not-quite acoustic.
-
----
-
-## Song and UserProfile Features
-
-### `Song` Object
-
-| Field | Type | Range / Values | Role in System |
-|---|---|---|---|
-| `id` | `int` | 1–10 | Unique identifier — not used in scoring |
-| `title` | `str` | — | Display only |
-| `artist` | `str` | — | Display only |
-| `genre` | `str` | `pop`, `lofi`, `rock`, `ambient`, `jazz`, `synthwave`, `indie pop` | Categorical match vs. `favorite_genre` — weight 0.20 |
-| `mood` | `str` | `happy`, `chill`, `intense`, `relaxed`, `focused`, `moody` | Categorical match vs. `favorite_mood` — weight 0.30 |
-| `energy` | `float` | 0.0–1.0 | Squared distance vs. `target_energy` — weight 0.40 |
-| `tempo_bpm` | `float` | 60–152 BPM | Available — not in primary scoring formula (correlated with energy) |
-| `valence` | `float` | 0.0–1.0 | Tie-breaker in ranking |
-| `danceability` | `float` | 0.0–1.0 | Available — not in primary scoring formula |
-| `acousticness` | `float` | 0.0–1.0 | Boolean alignment vs. `likes_acoustic` — weight 0.10 |
-
-### `UserProfile` Object
-
-| Field | Type | Valid Values | Maps To |
-|---|---|---|---|
-| `favorite_genre` | `str` | any genre in catalog | `Song.genre` — weight 0.20 |
-| `favorite_mood` | `str` | any mood in catalog | `Song.mood` — weight 0.30 |
-| `target_energy` | `float` | 0.0–1.0 | `Song.energy` — weight 0.40 |
-| `likes_acoustic` | `bool` | `True` / `False` | `Song.acousticness` — weight 0.10 |
-
-### Active vs. Passive Features
-
-```
-ACTIVE in scoring               PASSIVE (stored, available for v2)
-────────────────────────────    ──────────────────────────────────
-Song.energy       → 0.40        Song.tempo_bpm     (correlated with energy)
-Song.mood         → 0.30        Song.danceability  (low discriminating power)
-Song.genre        → 0.20
-Song.acousticness → 0.10
-Song.valence      → tie-breaker
+```bash
+git clone <your-repo-url>
+cd applied-ai-system-project
 ```
 
----
+### 2. Create a virtual environment
 
-## Getting Started
+```bash
+python -m venv .venv
+source .venv/bin/activate      # Mac / Linux
+.venv\Scripts\activate         # Windows
+```
 
-### Setup
-
-1. Create a virtual environment (optional but recommended):
-
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate      # Mac or Linux
-   .venv\Scripts\activate         # Windows
-
-2. Install dependencies
+### 3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Run the app:
+### 4. Set up your Gemini API key
+
+MusicBot modes 1 (Naive) and 3 (RAG) call the Gemini API. The Music Recommender and MusicBot mode 2 (Retrieval only) work without a key.
+
+- Get a free key at https://aistudio.google.com/app/apikeys
+- Copy the example env file:
+
+```bash
+cp .env.example .env          # Mac / Linux
+copy .env.example .env        # Windows
+```
+
+Open `.env` and replace the placeholder:
+
+```
+GEMINI_API_KEY=AIza...your_real_key_here
+```
+
+### 5. Run the application
 
 ```bash
 python -m src.main
 ```
 
-### Running Tests
-
-Run the starter tests with:
+### 6. Run the tests
 
 ```bash
 pytest
 ```
 
-You can add more tests in `tests/test_recommender.py`.
+---
+
+## Sample Interactions
+
+### Example 1 — Music Recommender (Profile: Chill Lofi)
+
+```
+Enter profile number: 2
+
+======================================================
+  Profile : Chill Lofi
+======================================================
+  Genre   : lofi
+  Mood    : focused
+  Energy  : 0.4
+  Acoustic: yes
+
+  Top 5 Recommendations:
+
+  #1  Focus Flow by LoRoom
+       Score : 5.950 / 6.0  [####################]
+       Why   :
+                - Genre match: lofi
+                - Mood match: focused
+                - Energy close to target (0.40 vs 0.40)
+                - Acoustic preference matched
+
+  #2  Library Rain by Paper Lanterns
+       Score : 5.008 / 6.0  [################----]
+       Why   :
+                - Genre match: lofi
+                - Adjacent mood (chill ≈ focused)
+                - Energy close to target (0.35 vs 0.40)
+                - Acoustic preference matched
+```
 
 ---
 
-## Experiments You Tried
+### Example 2 — MusicBot Mode 2 (Retrieval Only)
 
-Five adversarial profiles were run to stress-test the scoring logic:
+```
+Question: What songs are available in the lofi genre?
 
-![Edge cases terminal output](edge_cases.png)
+Retrieved snippets:
 
-| Edge Case | What Was Tested | What It Revealed |
+[lofi_genre.md]
+Songs in the lofi genre:
+- Midnight Coding by LoRoom      | Mood: chill   | Energy: 0.42 | Acousticness: 0.71
+- Library Rain by Paper Lanterns | Mood: chill   | Energy: 0.35 | Acousticness: 0.86
+- Focus Flow by LoRoom           | Mood: focused | Energy: 0.40 | Acousticness: 0.78
+All three lofi songs have low energy (0.35–0.42) and high acousticness...
+```
+
+---
+
+### Example 3 — MusicBot Mode 3 (RAG)
+
+```
+Question: What song would you recommend for an intense workout?
+
+Answer:
+Based on the workout topic, the best songs for an intense workout are:
+
+1. Iron Cathedral by Gravemass — energy 0.96 (metal/angry) — maximum intensity
+2. Pulse Grid by Synthex — energy 0.94 (edm/intense) — driving electronic beat, great for cardio
+3. Gym Hero by Max Pulse — energy 0.93 (pop/intense) — upbeat and motivating
+4. Storm Runner by Voltline — energy 0.91 (rock/intense) — aggressive rock energy
+
+These four songs have the highest energy scores in the catalog and are tagged
+with intense or angry moods, making them ideal for high-intensity activities.
+```
+
+---
+
+### Example 4 — MusicBot Off-Topic Guardrail
+
+```
+Question: What is the capital of France?
+
+Answer:
+I can only answer questions about the music catalog.
+```
+
+---
+
+## Design Decisions
+
+### Why content-based filtering for the recommender?
+
+Content-based filtering scores songs against stated preferences rather than inferring taste from other users. This makes every recommendation fully explainable — you can always trace why a song appeared. The trade-off is that it cannot discover music outside the user's stated preferences the way collaborative filtering can.
+
+### Why a fixed weighted formula?
+
+The weights (energy 0.40, mood 0.30, genre 0.20, acoustic 0.10) reflect how strongly each feature affects the overall listening experience. A large energy mismatch ruins a session regardless of genre or mood, so energy carries the most weight. Mood captures why you're listening right now (context), while genre captures longer-term texture — hence mood outweighs genre. The trade-off is that these weights are manually tuned and not learned from data.
+
+### Why an inverted index instead of embeddings for retrieval?
+
+An inverted index is transparent, fast, and requires no external model. For a 6-file knowledge base, it retrieves the right documents reliably. The trade-off is that it cannot handle synonyms or semantic similarity — "high tempo" will not match a document that only uses the word "energetic." Embedding-based retrieval would handle this but adds cost and complexity.
+
+### Why three separate modes in MusicBot?
+
+The three modes exist to compare retrieval and generation strategies directly:
+- **Naive LLM** shows what a model can do with all information but no structure — useful as a baseline but expensive and uncontrolled
+- **Retrieval only** shows what keyword search alone returns — fully auditable, zero LLM cost, but outputs raw text the user must parse
+- **RAG** combines both — the LLM generates a natural answer, but only from evidence the retrieval step selected — better grounding than naive, better readability than retrieval only
+
+### Why an off-topic guardrail?
+
+LLMs answer any question given to them. Without a guardrail, a user asking about world geography would get a confident, fabricated response in a music assistant. The keyword intersection check costs nothing and blocks clearly off-topic queries before any retrieval or API call runs.
+
+---
+
+## Testing Summary
+
+### What worked well
+
+- The content-based scoring formula produced sensible rankings across all 10 test profiles, including 5 adversarial edge cases designed to expose conflicts (e.g., high energy + sad mood, acoustic + high energy, genre with only one catalog entry)
+- The off-topic guardrail correctly blocked every non-music query tested without false-positiving on music questions that used indirect phrasing
+- RAG mode answered all 9 sample queries correctly after retrieval quality was fixed
+- Graceful degradation worked as intended: when no API key is present, the app starts, disables modes 1 and 3, and lets the user run retrieval-only mode without crashing
+
+### What failed and how it was fixed
+
+| Bug | Root Cause | Fix |
 |---|---|---|
-| Conflicting energy vs mood (`rock/sad/0.9`) | Can the system balance opposing signals? | Energy + genre (4.0 pts) reliably beats mood alone when energy gap is large — *Storm Runner* ranked #1 over actual sad songs |
-| Single-song genre (`metal/angry/0.95`) | What happens after the only matching song? | Large quality cliff — #1 scores 5.98, #2 drops to 3.23; mood neighbors fill the gap but at 3× lower scores |
-| Dead-center energy (`jazz/relaxed/0.5`) | Does a flat energy landscape destabilize ranking? | No — categorical signals (genre + mood) kept the ranking stable; *Coffee Shop Stories* won cleanly |
-| Acoustic + high energy contradiction (`folk/intense/0.9/acoustic`) | Can contradictory preferences be satisfied? | No — scores compressed between 3.5–3.8 with no clear winner; the system split between genre+acoustic and mood+energy |
-| No catalog match (`classical/angry/0.5`) | What happens when both genre AND mood miss? | Genre match (+2.0) outranked mood match (+1.5); results were technically correct but felt incoherent — *Iron Cathedral* (metal) appeared as #2 for a classical fan |
+| RAG returned "I do not know" for all queries | `score_document` counted duplicate tokens and matched substrings ("in" inside "intense"), causing wrong documents to rank first | Deduplicate query tokens; use `\b\w+\b` whole-word matching |
+| RAG still failed after fix | Threshold check was `score > effective_min` (strict), blocking chunks with score exactly equal to the threshold | Changed to `score >= effective_min` |
+| Naive mode ignored the corpus | `naive_answer_over_full_docs` did not include `all_text` in the prompt | Fixed the prompt template to embed the full corpus |
+| `load_fallback_documents()` crashed | Called `.items()` on a list instead of a dict | Converted `FALLBACK_DOCS` to `(topic, text)` tuples and returned `list(FALLBACK_DOCS)` |
+| Deprecation errors on startup | `google.generativeai` package removed; code used old `genai.configure()` API | Migrated to `google.genai` with `genai.Client(api_key=...)` and `client.models.generate_content()` |
+| No guardrail on Naive mode | `answer_naive` called LLM directly without topic check | Added `is_on_topic()` check at the top of `answer_naive` |
 
-**Key takeaway:** the scoring formula resolves preference conflicts predictably but not always intuitively. Energy + genre together (up to 4.0 pts) consistently outweigh mood alone (1.5 pts), which means context-based preferences can be overridden by audio feature proximity.
+### What I would test next
 
----
-
-## Limitations and Risks
-
-Summarize some limitations of your recommender.
-
-Examples:
-
-- It only works on a tiny catalog
-- It does not understand lyrics or language
-- It might over favor one genre or mood
-
-You will go deeper on this in your model card.
+- Edge queries with synonyms ("high tempo" vs "energetic") to measure retrieval recall gaps
+- Multi-turn conversation: does the system maintain context across questions?
+- Adversarial prompts designed to jailbreak the off-topic guardrail via music-adjacent phrasing
 
 ---
 
 ## Reflection
 
-Read and complete `model_card.md`:
-
-[**Model Card**](model_card.md)
-
-Write 1 to 2 paragraphs here about what you learned:
-
-- about how recommenders turn data into predictions
-- about where bias or unfairness could show up in systems like this
 
 
 ---
 
-## 7. `model_card_template.md`
+## Project Structure
 
-Combines reflection and model card framing from the Module 3 guidance. :contentReference[oaicite:2]{index=2}  
-
-```markdown
-# 🎧 Model Card - Music Recommender Simulation
-
-## 1. Model Name
-
-Give your recommender a name, for example:
-
-> MoodTune 1.0
-
----
-
-## 2. Intended Use
-
-- What is this system trying to do
-- Who is it for
-
-Example:
-
-> This model suggests 3 to 5 songs from a small catalog based on a user's preferred genre, mood, and energy level. It is for classroom exploration only, not for real users.
-
----
-
-## 3. How It Works (Short Explanation)
-
-Describe your scoring logic in plain language.
-
-- What features of each song does it consider
-- What information about the user does it use
-- How does it turn those into a number
-
-Try to avoid code in this section, treat it like an explanation to a non programmer.
-
----
-
-## 4. Data
-
-Describe your dataset.
-
-- How many songs are in `data/songs.csv`
-- Did you add or remove any songs
-- What kinds of genres or moods are represented
-- Whose taste does this data mostly reflect
-
----
-
-## 5. Strengths
-
-Where does your recommender work well
-
-You can think about:
-- Situations where the top results "felt right"
-- Particular user profiles it served well
-- Simplicity or transparency benefits
-
----
-
-## 6. Limitations and Bias
-
-Where does your recommender struggle
-
-Some prompts:
-- Does it ignore some genres or moods
-- Does it treat all users as if they have the same taste shape
-- Is it biased toward high energy or one genre by default
-- How could this be unfair if used in a real product
-
----
-
-## 7. Evaluation
-
-How did you check your system
-
-Examples:
-- You tried multiple user profiles and wrote down whether the results matched your expectations
-- You compared your simulation to what a real app like Spotify or YouTube tends to recommend
-- You wrote tests for your scoring logic
-
-You do not need a numeric metric, but if you used one, explain what it measures.
-
----
-
-## 8. Future Work
-
-If you had more time, how would you improve this recommender
-
-Examples:
-
-- Add support for multiple users and "group vibe" recommendations
-- Balance diversity of songs instead of always picking the closest match
-- Use more features, like tempo ranges or lyric themes
-
----
-
-## 9. Personal Reflection
-
-A few sentences about what you learned:
-
-- What surprised you about how your system behaved
-- How did building this change how you think about real music recommenders
-- Where do you think human judgment still matters, even if the model seems "smart"
-
+```
+applied-ai-system-project/
+├── src/
+│   ├── main.py          # Entry point and CLI menus
+│   └── recommender.py   # Scoring formula and catalog loader
+├── data/
+│   └── songs.csv        # 20-song catalog
+├── docs/                # MusicBot knowledge base (6 .md files)
+│   ├── catalog.md
+│   ├── high_energy_songs.md
+│   ├── genres_and_moods.md
+│   ├── artists.md
+│   ├── acoustic_songs.md
+│   └── recommendations.md
+├── musicbot.py          # MusicBot class: loading, indexing, retrieval, answering
+├── llm_client.py        # GeminiClient wrapper (naive + RAG generation)
+├── dataset.py           # Sample queries and fallback corpus
+├── requirements.txt
+├── .env.example         # API key template
+└── README.md
+```
