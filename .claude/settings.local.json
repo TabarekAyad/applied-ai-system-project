@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tabar\\\\OneDrive\\\\Documents\\\\programming_directory\\\\codepath\\\\codepath_ai_110\" | Select-Object Name, @{Name='Type'; Expression={if \\($_.PSIsContainer\\) { 'Folder' } else { 'File' }}})"
+    ]
+  }
+}
